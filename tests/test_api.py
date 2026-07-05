@@ -64,7 +64,12 @@ def test_get_quote_analysis_enabled(monkeypatch):
     monkeypatch.setattr(ai_analysis, "is_available", lambda: True)
     monkeypatch.setattr(quote_service, "get_quote_detail", fake_get_quote_detail)
     monkeypatch.setattr(ai_analysis, "analyze_quote", fake_analyze_quote)
+    monkeypatch.setattr(ai_analysis, "get_provider", lambda: "anthropic")
 
     res = client.get("/api/quotes/AAPL/analysis")
     assert res.status_code == 200
-    assert res.json() == {"available": True, "analysis": "테스트 분석 결과"}
+    assert res.json() == {
+        "available": True,
+        "analysis": "테스트 분석 결과",
+        "provider": "anthropic",
+    }
