@@ -5,3 +5,5 @@ __pycache__/
 .env
 .git/
 tests/
+legacy_fastapi/
+.pytest_cache/

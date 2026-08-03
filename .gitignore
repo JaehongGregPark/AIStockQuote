@@ -7,5 +7,5 @@ __pycache__/
 .tmp-test/
 *.egg-info/
 .DS_Store
-backend/staticfiles/
-backend/media/
+staticfiles/
+media/
