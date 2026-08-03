@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AiStockQuote Admin Login</title>
+  <link rel="stylesheet" href="/stock/style.css">
+</head>
+<body class="stock-admin-login">
+  <main class="stock-admin-login-shell">
+    <section class="stock-admin-login-card">
+      <div>
+        <p class="stock-admin-eyebrow">AiStockQuote</p>
+        <h1>Stock 관리자 로그인</h1>
+        <p class="stock-admin-copy">관리자 계정으로 로그인하면 AI 공급자 설정 화면으로 이동합니다.</p>
+      </div>
+
+      <form method="post" action="{% url 'stock_admin_login_submit' %}" class="stock-admin-login-form">
+        {% csrf_token %}
+        {% if error %}
+          <div class="stock-admin-login-error">{{ error }}</div>
+        {% endif %}
+        <label>
+          관리자 아이디
+          <input name="username" type="text" autocomplete="username" required autofocus>
+        </label>
+        <label>
+          비밀번호
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit">관리자 화면으로 이동</button>
+      </form>
+
+      <a class="stock-admin-back-link" href="/stock/">사용자 화면으로 돌아가기</a>
+    </section>
+  </main>
+</body>
+</html>

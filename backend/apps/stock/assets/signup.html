@@ -1,0 +1,256 @@
+<!-- 2026-07-23: 독립 회원가입 페이지 (apps/aura_app와 동일 요청, 전체 앱 동일 적용). -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AiStockQuote | 회원가입</title>
+<link rel="stylesheet" href="/stock/style.css" />
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<style>
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; box-sizing: border-box; }
+  .auth-page-card { background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 440px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .auth-page-card h2 { margin-top: 0; font-size: 1.25rem; }
+  .auth-page-card label { display: block; font-size: 0.85rem; margin: 12px 0 4px; color: #333; }
+  .auth-page-card input { width: 100%; padding: 9px 10px; border: 1px solid #ccc; border-radius: 6px;
+    box-sizing: border-box; font-size: 0.9rem; }
+  .auth-address-row { display: flex; gap: 8px; align-items: center; }
+  .auth-address-row input { flex: 1; }
+  .auth-postcode-btn { white-space: nowrap; padding: 9px 12px; border-radius: 6px; border: 1px solid #417690;
+    background: #fff; color: #417690; cursor: pointer; font-size: 0.85rem; }
+  .auth-submit-btn { width: 100%; margin-top: 18px; padding: 11px; border: none; border-radius: 999px;
+    background: #417690; color: #fff; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+  .auth-status { min-height: 1.2em; font-size: 0.85rem; margin-top: 10px; }
+  .auth-status-ok { color: #2ecc71; }
+  .auth-status-error { color: #e74c3c; }
+  .auth-switch-link { display: block; margin-top: 14px; font-size: 0.85rem; text-align: center; }
+  .auth-switch-link a { color: #417690; }
+  .auth-checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+  .auth-checkbox-row input { width: auto; }
+  .auth-checkbox-row label { margin: 0; font-size: 0.85rem; }
+  .consent-terms-box { margin-top: 12px; padding: 8px 10px; border: 1px solid #e2e2e2; border-radius: 8px; max-height: 120px; overflow-y: auto; background: #fafafa; }
+  .consent-terms-box h4 { margin: 0 0 4px; font-size: 0.82rem; }
+  .consent-terms-box pre { margin: 0; font-size: 0.75rem; white-space: pre-wrap; color: #555; font-family: inherit; }
+  .social-auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; color: #888; font-size: 0.78rem; }
+  .social-auth-divider::before, .social-auth-divider::after { content: ""; flex: 1; height: 1px; background: #e2e2e2; }
+  .social-auth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .social-auth-btn { border: 1px solid #ddd; border-radius: 8px; padding: 9px 10px; font-weight: 700; font-size: 0.82rem; cursor: pointer; }
+  .social-auth-kakao { background: #fee500; border-color: #fee500; color: #191919; }
+  .social-auth-naver { background: #03c75a; border-color: #03c75a; color: #fff; }
+  .social-auth-google { background: #fff; color: #1f1f1f; }
+  .social-auth-apple { background: #000; border-color: #000; color: #fff; }
+</style>
+</head>
+<body>
+  <div class="auth-page-card">
+    <h2>회원가입</h2>
+    <form id="signupForm">
+      <label>이메일</label>
+      <input type="email" id="signupEmail" required autofocus>
+      <label>이름</label>
+      <input type="text" id="signupName" required>
+      <label>휴대폰 번호</label>
+      <input type="text" id="signupPhone" placeholder="010-0000-0000">
+      <label>주소</label>
+      <div class="auth-address-row">
+        <input type="text" id="signupPostalCode" placeholder="우편번호" autocomplete="postal-code" inputmode="numeric">
+        <button type="button" class="auth-postcode-btn" id="postcodeSearchBtn">우편번호 검색</button>
+      </div>
+      <input type="text" id="signupRoadAddress" placeholder="도로명주소" autocomplete="address-line1" style="margin-top:8px;">
+      <input type="text" id="signupAddressDetail" placeholder="상세주소 (동·호수 등)" autocomplete="address-line2" style="margin-top:8px;">
+      <label>비밀번호</label>
+      <input type="password" id="signupPassword" required minlength="8">
+      <label>비밀번호 확인</label>
+      <input type="password" id="signupPasswordConfirm" required minlength="8">
+      <div id="consentItemsContainer"></div>
+      <button type="submit" class="auth-submit-btn">가입하기</button>
+      <p class="auth-status" id="signupStatus"></p>
+      <div class="auth-switch-link">이미 계정이 있으신가요? <a href="/stock/login/">로그인</a></div>
+      <div class="auth-switch-link"><a href="/stock/">AiStockQuote 홈으로 돌아가기</a></div>
+    </form>
+    <div id="signupSocialSlot"></div>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+    const API_BASE = "/stock/api/auth";
+    const SOCIAL_PROVIDER_LABELS = { kakao: "카카오", naver: "네이버", google: "구글", apple: "애플" };
+
+    function qs(id) { return document.getElementById(id); }
+
+    async function postJson(url, body) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {}),
+      });
+      let data = {};
+      try { data = await response.json(); } catch (error) { data = { ok: false, error: "서버 응답을 해석할 수 없습니다." }; }
+      return { ok: response.ok, status: response.status, data: data };
+    }
+
+    async function getJson(url) {
+      const response = await fetch(url);
+      const data = await response.json();
+      return { ok: response.ok, data: data };
+    }
+
+    function setStatus(id, message, isError) {
+      const el = qs(id);
+      if (!el) return;
+      el.textContent = message || "";
+      el.className = "auth-status" + (isError ? " auth-status-error" : message ? " auth-status-ok" : "");
+    }
+
+    let consentItems = [];
+
+    async function loadConsentItems() {
+      try {
+        const result = await getJson("/stock/api/consent-items/active/");
+        consentItems = (result.data && result.data.items) || [];
+      } catch (error) {
+        consentItems = [];
+      }
+      renderConsentItems();
+    }
+
+    function renderConsentItems() {
+      const container = qs("consentItemsContainer");
+      if (!container) return;
+      container.innerHTML = "";
+      consentItems.forEach((item) => {
+        const box = document.createElement("div");
+        box.className = "consent-terms-box";
+        box.innerHTML = "<h4>" + (item.titleKo || item.label) + "</h4><pre>" + (item.bodyKo || "").replace(/</g, "&lt;") + "</pre>";
+
+        const row = document.createElement("div");
+        row.className = "auth-checkbox-row";
+        row.innerHTML =
+          '<input type="checkbox" data-consent-key="' + item.key + '" id="consent_' + item.key + '" ' + (item.isRequired ? "required" : "") + '>' +
+          '<label for="consent_' + item.key + '">' + item.label + " (" + (item.isRequired ? "필수" : "선택") + ")</label>";
+        container.appendChild(box);
+        container.appendChild(row);
+      });
+    }
+
+    function collectConsents() {
+      const consents = {};
+      document.querySelectorAll("#consentItemsContainer [data-consent-key]").forEach((input) => {
+        consents[input.getAttribute("data-consent-key")] = input.checked;
+      });
+      return consents;
+    }
+
+    function firstMissingRequiredConsentLabel(consents) {
+      for (let i = 0; i < consentItems.length; i++) {
+        const item = consentItems[i];
+        if (item.isRequired && !consents[item.key]) return item.label;
+      }
+      return null;
+    }
+
+    function openPostcodeSearch() {
+      if (typeof daum === "undefined" || !daum.Postcode) {
+        alert("우편번호 검색 스크립트를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      new daum.Postcode({
+        oncomplete: function (data) {
+          qs("signupPostalCode").value = data.zonecode;
+          qs("signupRoadAddress").value = data.roadAddress || data.jibunAddress;
+          qs("signupAddressDetail").focus();
+        },
+      }).open();
+    }
+
+    async function handleSignup(event) {
+      event.preventDefault();
+      const consents = collectConsents();
+      const missingConsentLabel = firstMissingRequiredConsentLabel(consents);
+      if (missingConsentLabel) {
+        setStatus("signupStatus", missingConsentLabel + " 동의가 필요합니다.", true);
+        return;
+      }
+      setStatus("signupStatus", "가입 처리 중입니다...", false);
+      const payload = {
+        email: qs("signupEmail").value.trim(),
+        name: qs("signupName").value.trim(),
+        password: qs("signupPassword").value,
+        passwordConfirm: qs("signupPasswordConfirm").value,
+        phone: qs("signupPhone").value.trim(),
+        postalCode: qs("signupPostalCode").value.trim(),
+        roadAddress: qs("signupRoadAddress").value.trim(),
+        addressDetail: qs("signupAddressDetail").value.trim(),
+        consents: consents,
+      };
+      const result = await postJson(API_BASE + "/signup/", payload);
+      if (!result.ok) {
+        setStatus("signupStatus", (result.data && result.data.error) || "가입에 실패했습니다.", true);
+        return;
+      }
+      setStatus("signupStatus", "가입이 완료되었습니다. 이메일로 발송된 인증 링크를 눌러 인증을 완료해 주세요.", false);
+      qs("signupForm").reset();
+    }
+
+    function renderSocialButtons() {
+      const providers = window.STOCK_SOCIAL_PROVIDERS || [];
+      if (!providers.length) return;
+      const buttonsHtml = providers
+        .map((provider) => (
+          '<button type="button" class="social-auth-btn social-auth-' + provider + '" data-social-provider="' +
+          provider + '">' + (SOCIAL_PROVIDER_LABELS[provider] || provider) + '로 계속하기</button>'
+        ))
+        .join("");
+      const slot = qs("signupSocialSlot");
+      slot.innerHTML =
+        '<div class="social-auth-divider">또는 소셜 계정으로 계속하기</div>' +
+        '<div class="social-auth-row">' + buttonsHtml + '</div>' +
+        '<p style="font-size:0.75rem;color:#888;margin-top:8px;">소셜 가입도 위 필수 약관/동의 항목에 먼저 동의해야 합니다.</p>';
+      slot.querySelectorAll(".social-auth-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const consents = collectConsents();
+          const missingConsentLabel = firstMissingRequiredConsentLabel(consents);
+          if (missingConsentLabel) {
+            setStatus("signupStatus", "필수 약관/동의 항목에 모두 동의해 주세요.", true);
+            return;
+          }
+          const params = new URLSearchParams();
+          params.set("next", "/stock/signup/");
+          params.set("consents", JSON.stringify(consents));
+          window.location.href = "/stock/api/auth/social/" + btn.getAttribute("data-social-provider") + "/start/?" + params.toString();
+        });
+      });
+    }
+
+    function handleSocialAuthRedirectResult() {
+      const params = new URLSearchParams(window.location.search);
+      const success = params.get("social");
+      const error = params.get("socialError");
+      if (!success && !error) return;
+
+      if (success === "success") {
+        window.location.href = "/stock/";
+        return;
+      }
+      if (error) {
+        setStatus("signupStatus", decodeURIComponent(error) || "소셜 로그인에 실패했습니다.", true);
+      }
+      params.delete("social");
+      params.delete("socialError");
+      const newSearch = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (newSearch ? "?" + newSearch : ""));
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      qs("signupForm").addEventListener("submit", handleSignup);
+      qs("postcodeSearchBtn").addEventListener("click", openPostcodeSearch);
+      renderSocialButtons();
+      loadConsentItems();
+      handleSocialAuthRedirectResult();
+    });
+  })();
+  </script>
+</body>
+</html>

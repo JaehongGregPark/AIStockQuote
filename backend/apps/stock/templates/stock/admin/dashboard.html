@@ -1,0 +1,1282 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AiStockQuote 관리자</title>
+    <style>
+      :root {
+        --bg: #f4f5f7;
+        --panel: #ffffff;
+        --surface: #fbfbfc;
+        --ink: #25272d;
+        --muted: #69707d;
+        --line: rgba(38, 43, 51, 0.14);
+        --accent: #4f6272;
+        --accent-strong: #394b59;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-width: 1180px;
+        color: var(--ink);
+        background: var(--bg);
+        font-family: Inter, "Noto Sans KR", system-ui, sans-serif;
+      }
+
+      button, input, textarea, select { font: inherit; }
+
+      .admin-shell {
+        width: 100%;
+        max-width: 1680px;
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 20px 24px 28px;
+        display: grid;
+        grid-template-columns: 232px minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 18px;
+      }
+
+      .admin-topbar {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 70px;
+        padding: 14px 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 12px 28px rgba(38, 43, 51, 0.06);
+      }
+
+      .admin-topbar h1 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      .admin-topbar p,
+      .help-text {
+        margin: 6px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .top-actions,
+      .module-tabs,
+      .row-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .button,
+      .module-tab {
+        min-height: 40px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0 14px;
+        color: var(--ink);
+        background: var(--panel);
+        cursor: pointer;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .button.primary,
+      .button.is-active,
+      .module-tab.is-active {
+        color: #fff;
+        border-color: transparent;
+        background: var(--accent-strong);
+      }
+
+      .module-tabs {
+        grid-column: 1;
+        grid-row: 2;
+        position: sticky;
+        top: 18px;
+        align-self: start;
+        display: grid;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 12px 28px rgba(38, 43, 51, 0.06);
+      }
+
+      .module-tab {
+        width: 100%;
+        justify-content: start;
+        text-align: left;
+      }
+
+      .member-layout {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 12px 28px rgba(38, 43, 51, 0.06);
+      }
+
+      .panel { padding: 18px; }
+
+      .admin-shell > .panel {
+        grid-column: 2;
+        grid-row: 2;
+        min-width: 0;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 14px;
+        min-height: 58px;
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .section-title h2 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .doc-grid,
+      .settings-grid,
+      .member-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .settings-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+      }
+
+      #llmProviderGrid,
+      #socialProviderGrid {
+        grid-template-columns: 1fr;
+      }
+
+      .provider-row {
+        grid-template-columns: 140px 170px minmax(240px, 1fr) minmax(180px, 0.8fr) 130px;
+        align-items: end;
+      }
+
+      .provider-key-hint {
+        min-height: 18px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .provider-validation {
+        grid-column: 1 / -1;
+        min-height: 18px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .provider-validation.is-ok { color: #2f7355; }
+      .provider-validation.is-error { color: #9d3147; }
+
+      .provider-models {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 24px;
+      }
+
+      .provider-model {
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: #fff;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .stat-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .stat-card {
+        min-width: 120px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+
+      .stat-card strong { display: block; font-size: 20px; }
+      .stat-card span { color: var(--muted); font-size: 12px; font-weight: 800; }
+
+      .doc-card,
+      .settings-card {
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+
+      .settings-card.wide { grid-column: 1 / -1; }
+
+      .member-card {
+        display: grid;
+        gap: 5px;
+        padding: 11px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .member-card.is-active {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(111, 90, 122, 0.12);
+      }
+
+      .member-card strong { font-size: 15px; }
+      .member-card span { color: var(--muted); font-size: 12px; }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .form-grid .full { grid-column: 1 / -1; }
+
+      .settings-card {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: end;
+      }
+
+      .settings-card > .form-grid,
+      .settings-card > h3,
+      .settings-card > p,
+      .settings-card > button {
+        grid-column: 1 / -1;
+      }
+
+      .login-history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .login-history-table th,
+      .login-history-table td {
+        border-bottom: 1px solid var(--line);
+        padding: 6px 8px;
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      .login-history-table td.login-history-ua {
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      label {
+        display: grid;
+        gap: 7px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      input, textarea, select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        color: var(--ink);
+        background: #fff;
+      }
+
+      .hint-text { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+
+      .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch-slider {
+        position: absolute; inset: 0; cursor: pointer;
+        background: #cbd5e1; border-radius: 999px; transition: 0.15s;
+      }
+      .switch-slider::before {
+        content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px;
+        background: #fff; border-radius: 50%; transition: 0.15s;
+      }
+      .switch input:checked + .switch-slider { background: var(--accent-strong); }
+      .switch input:checked + .switch-slider::before { transform: translateX(18px); }
+      .switch-row { display: flex; align-items: center; gap: 10px; }
+      .switch-row span { font-size: 13px; font-weight: 800; color: var(--ink); }
+
+      .status {
+        min-height: 20px;
+        margin-top: 14px;
+        color: var(--muted);
+        font-weight: 800;
+      }
+
+      .status.is-ok { color: #2f7355; }
+      .status.is-error { color: #9d3147; }
+
+      [hidden] { display: none !important; }
+
+      @media (max-width: 900px) {
+        body { min-width: 0; }
+        .admin-shell { display: block; padding: 16px; }
+        .module-tabs { position: static; display: flex; margin: 14px 0; }
+        .admin-topbar, .member-layout, .form-grid, .settings-grid, .doc-grid, .settings-card, .provider-row {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-topbar">
+        <div>
+          <h1>AiStockQuote 관리자</h1>
+          <p>회원, AI provider API key, 소셜 로그인 설정을 관리합니다.</p>
+        </div>
+        <div class="top-actions">
+          <a class="button" href="{% url 'stock_admin_tests' %}">자동테스트 실행 및 결과확인</a>
+          <a class="button" href="{% url 'stock_admin_ops' %}?tab=api">API 테스트</a>
+          <a class="button" href="{% url 'stock_admin_ops' %}?tab=ci">CI / pytest</a>
+          <a class="button" href="{% url 'stock_admin_ops' %}?tab=cd">배포 자동화</a>
+          <a class="button" href="{% url 'stock_home' %}" target="_blank" rel="noreferrer">메인 화면 보기</a>
+        </div>
+      </header>
+
+      <nav class="module-tabs" aria-label="Admin sections">
+        <button class="module-tab{% if active_tab == 'members' %} is-active{% endif %}" type="button" data-module="members">회원관리</button>
+        <button class="module-tab{% if active_tab == 'page' %} is-active{% endif %}" type="button" data-module="page">앱 페이지 관리</button>
+        <button class="module-tab{% if active_tab == 'content' %} is-active{% endif %}" type="button" data-module="content">문구관리</button>
+        <button class="module-tab{% if active_tab == 'terms' %} is-active{% endif %}" type="button" data-module="terms">약관관리</button>
+        <button class="module-tab{% if active_tab == 'api' %} is-active{% endif %}" type="button" data-module="api">API key 관리</button>
+        <button class="module-tab{% if active_tab == 'social' %} is-active{% endif %}" type="button" data-module="social">소셜로그인</button>
+        <button class="module-tab{% if active_tab == 'photos' %} is-active{% endif %}" type="button" data-module="photos">사진관리</button>
+        <button class="module-tab{% if active_tab == 'styles' %} is-active{% endif %}" type="button" data-module="styles">스타일관리</button>
+      </nav>
+
+      <section class="panel" id="membersModule"{% if active_tab != 'members' %} hidden{% endif %}>
+        <div class="section-title">
+          <div>
+            <h2>회원관리</h2>
+            <p class="help-text">회원 목록/프로필을 관리하고, 이메일 인증·비밀번호 재설정·소셜 연동 해제를 처리합니다.</p>
+          </div>
+          <div class="row-actions">
+            <button class="button primary" type="button" id="saveMembersButton">회원 저장</button>
+          </div>
+        </div>
+        <div class="settings-card wide" style="margin-bottom:16px;">
+          <div class="section-title"><div><h3>회원가입 인증·필수 입력 설정</h3><p class="help-text">활성화한 인증은 완료 후에만 가입할 수 있습니다.</p></div><button class="button primary" type="button" id="saveVerificationPolicyButton">인증 설정 저장</button></div>
+          <div class="form-grid">
+            <label><input id="emailVerificationEnabledInput" type="checkbox"{% if verification_policy.emailEnabled %} checked{% endif %}> 이메일 인증 사용</label>
+            <label><input id="phoneVerificationEnabledInput" type="checkbox"{% if verification_policy.phoneEnabled %} checked{% endif %}> 휴대전화 인증 사용</label>
+            <label><input id="requirePhoneInput" type="checkbox"{% if verification_policy.requirePhone %} checked{% endif %}> 휴대전화번호 입력 필수</label>
+            <label><input id="requireAddressInput" type="checkbox"{% if verification_policy.requireAddress %} checked{% endif %}> 주소 입력 필수</label>
+          </div><div class="status" id="verificationPolicyStatus"></div>
+        </div>
+        <div class="stat-row">
+          {% for stat in signup_path_stats %}
+          <div class="stat-card"><strong>{{ stat.count }}</strong><span>{{ stat.label }}</span></div>
+          {% endfor %}
+        </div>
+        <div class="member-layout">
+          <aside class="member-list" id="memberList"></aside>
+          <section class="settings-grid">
+            <div class="settings-card wide">
+              <div class="form-grid">
+                <label>회원 ID<input id="memberIdInput" type="text" readonly></label>
+                <label>인증 상태<input id="memberVerifiedStatus" type="text" readonly></label>
+                <label>가입경로<input id="memberSignupPathInput" type="text" readonly></label>
+                <label>역할<input id="memberRoleInput" type="text"></label>
+                <label>이름<input id="memberNameInput" type="text"></label>
+                <label>이메일(로그인 아이디)<input id="memberEmailInput" type="email" readonly></label>
+                <label>전화번호<input id="memberPhoneInput" type="text"></label>
+                <label>우편번호<input id="memberPostalCodeInput" type="text"></label>
+                <label class="full">도로명주소<input id="memberRoadAddressInput" type="text"></label>
+                <label class="full">상세주소<input id="memberAddressDetailInput" type="text"></label>
+                <label class="full">메모<textarea id="memberMemoInput" rows="3"></textarea></label>
+              </div>
+            </div>
+            <div class="settings-card wide">
+              <h3>회원 관리 작업</h3>
+              <p class="help-text">StockMemberAdmin의 관리자 액션과 동일한 처리를 개별 회원 단위로 실행합니다.</p>
+              <div class="row-actions">
+                <button class="button" type="button" id="resendVerificationButton">인증메일 재발송</button>
+                <button class="button" type="button" id="passwordResetButton">비밀번호 재설정 메일 발송</button>
+                <button class="button" type="button" id="unlinkSocialButton">소셜 연동 해제</button>
+                <a class="button" type="button" id="sendCustomEmailLink" href="#" target="_blank">메일 보내기</a>
+              </div>
+            </div>
+            <div class="settings-card wide">
+              <h3>접속기록</h3>
+              <p class="help-text">최근 로그인 시도 20건(성공/실패)입니다.</p>
+              <div class="full" id="memberLoginHistory"></div>
+            </div>
+          </section>
+        </div>
+        <div class="status" id="membersStatus"></div>
+      </section>
+
+      <section class="panel" id="pageModule"{% if active_tab != 'page' %} hidden{% endif %}>
+        <div class="section-title"><div><h2>시세·탐색 신뢰 지표</h2><p class="help-text">데이터 품질과 사용자 탐색 기능의 사용 현황입니다.</p></div></div>
+        <div class="stat-row">
+          <div class="stat-card"><strong>{{ quality_success }}</strong><span>시세 갱신 성공</span></div>
+          <div class="stat-card"><strong>{{ quality_failure }}</strong><span>갱신 실패·누락</span></div>
+          <div class="stat-card"><strong>{{ watchlist_total }}</strong><span>관심종목</span></div>
+          <div class="stat-card"><strong>{{ alert_total }}</strong><span>활성 알림</span></div>
+          <div class="stat-card"><strong>{{ event_total }}</strong><span>이벤트 일정</span></div>
+          <div class="stat-card"><strong>{{ news_total }}</strong><span>출처 등록 뉴스</span></div>
+        </div>
+        <div class="section-title">
+          <div>
+            <h2>앱 페이지 관리</h2>
+            <p class="help-text">아직 준비되지 않은 기능입니다.</p>
+          </div>
+        </div>
+        <article class="doc-card">
+          <p>AiStockQuote는 실시간 시세 데이터를 외부 API(yfinance)에서 그때그때 가져와 보여주는 앱이라, 관리자가 직접 편집하는 페이지/콘텐츠가 없습니다.</p>
+        </article>
+      </section>
+
+      <section class="panel" id="contentModule"{% if active_tab != 'content' %} hidden{% endif %}>
+        <div class="section-title">
+          <div>
+            <h2>문구관리</h2>
+            <p class="help-text">아직 준비되지 않은 기능입니다.</p>
+          </div>
+        </div>
+        <article class="doc-card"><p>화면 문구는 현재 템플릿에 직접 두고 있어, 별도의 문구관리 화면이 아직 없습니다.</p></article>
+      </section>
+
+      <section class="panel" id="termsModule"{% if active_tab != 'terms' %} hidden{% endif %}>
+        <div class="section-title">
+          <div>
+            <h2>약관관리</h2>
+            <p class="help-text">회원가입 동의 항목(이용약관/개인정보처리방침/AI 서비스 이용안내는 필수, 마케팅수신동의/위치정보이용약관은 선택)을 관리합니다. 각 항목은 게시 여부·필수/선택 여부를 따로 켜고 끌 수 있고, 별도 게시 URL(/stock/terms/&lt;key&gt;/)을 가집니다. 저장할 때마다 새 버전이 발행되고 이전 버전은 이력으로 남습니다.</p>
+          </div>
+          <button class="button" type="button" id="addConsentItemButton">+ 새 항목 추가</button>
+        </div>
+        <div class="member-layout">
+          <aside class="member-list" id="consentItemsList"></aside>
+          <section class="settings-grid">
+            <div class="settings-card wide">
+              <div class="form-grid">
+                <label>항목 key<input id="consentItemKeyInput" type="text" readonly></label>
+                <label>게시 URL<input id="consentItemUrlInput" type="text" readonly></label>
+                <label class="full">항목 이름<input id="consentItemLabelInput" type="text"></label>
+                <label class="checkbox-row"><input id="consentItemRequiredInput" type="checkbox"> 필수 항목 (끄면 선택 항목)</label>
+                <label class="checkbox-row"><input id="consentItemPublishedInput" type="checkbox"> 게시함 (회원가입 화면/공개 URL에 노출)</label>
+              </div>
+              <button class="button" type="button" id="saveConsentItemSettingsButton" style="margin-top: 12px;">항목 설정 저장</button>
+            </div>
+            <div class="settings-card wide">
+              <div class="form-grid">
+                <label>제정일자<input id="consentEnactedAtInput" type="text" readonly></label>
+                <label>현재 버전<input id="consentCurrentVersionInput" type="text" readonly></label>
+                <label>최근 변경일자<input id="consentChangedAtInput" type="text" readonly></label>
+                <label class="full">제목 (한글)<input id="consentTitleKoInput" type="text"></label>
+                <label class="full">제목 (영문)<input id="consentTitleEnInput" type="text"></label>
+                <label class="full">본문 (한글)<textarea id="consentBodyKoInput" rows="8"></textarea></label>
+                <label class="full">본문 (영문)<textarea id="consentBodyEnInput" rows="8"></textarea></label>
+                <label class="full">변경내용 (최초 제정 이후 개정 시 필수)<input id="consentChangeSummaryInput" type="text"></label>
+              </div>
+              <button class="button primary" type="button" id="saveConsentRevisionButton" style="margin-top: 12px;">새 버전 발행</button>
+              <div class="status" id="consentStatus"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="panel" id="apiModule"{% if active_tab != 'api' %} hidden{% endif %}>
+        <div class="section-title">
+          <div>
+            <h2>API key 관리</h2>
+            <p class="help-text">시세 분석용 AI provider(Anthropic/OpenAI/Gemini)를 선택하고, provider별 사용여부/API key/모델/메모를 관리합니다. 저장 후 자동으로 실시간 검증하며, "키 검증" 버튼으로 언제든 다시 확인할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="settings-grid" id="llmProviderGrid"></div>
+        <div class="status" id="apiStatus"></div>
+      </section>
+
+      <section class="panel" id="socialModule"{% if active_tab != 'social' %} hidden{% endif %}>
+        <div class="section-title">
+          <div>
+            <h2>소셜로그인 연동 현황</h2>
+            <p class="help-text">카카오/네이버/구글/애플 회원가입·로그인 백엔드는 이미 구현되어 있습니다. 각 제공사 개발자센터에서 발급받은 클라이언트ID/시크릿을 아래에 입력하고 "사용"을 켜면 로그인/회원가입 화면에 해당 버튼이 나타납니다. 이 설정은 허브 전체 5개 서브앱(aura/stock/aerogo/origin)이 공유하며, 저장하면 재시작 없이 즉시 반영되고 .env에도 기록됩니다.</p>
+          </div>
+        </div>
+        <div class="stat-row" id="socialStatsRow"></div>
+        <div class="settings-grid" id="socialProviderGrid"></div>
+        <div class="status" id="socialStatus"></div>
+        <article class="doc-card wide" style="margin-top:16px;">
+          <h3>최근 소셜로그인 연동 계정</h3>
+          <table class="login-history-table">
+            <thead><tr><th>제공사</th><th>이메일</th><th>표시 이름</th><th>연결된 회원</th><th>최근 로그인</th></tr></thead>
+            <tbody id="socialRecentBody">
+              <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">아직 연동된 소셜 계정이 없습니다.</td></tr>
+            </tbody>
+          </table>
+        </article>
+      </section>
+
+      <section class="panel" id="photosModule"{% if active_tab != 'photos' %} hidden{% endif %}>
+        <div class="section-title">
+          <div>
+            <h2>사진관리</h2>
+            <p class="help-text">아직 준비되지 않은 기능입니다.</p>
+          </div>
+        </div>
+        <article class="doc-card"><p>별도의 사진관리 화면이 아직 없습니다.</p></article>
+      </section>
+
+      <section class="panel" id="stylesModule"{% if active_tab != 'styles' %} hidden{% endif %}>
+        <div class="section-title">
+          <div>
+            <h2>스타일관리</h2>
+            <p class="help-text">아직 준비되지 않은 기능입니다.</p>
+          </div>
+        </div>
+        <article class="doc-card"><p>테마/스타일 설정 화면이 아직 없습니다.</p></article>
+      </section>
+    </main>
+
+    <script>
+      const initialMembers = {{ members_json|safe }};
+      const initialConsentItems = {{ consent_items_json|safe }};
+      const csrfToken = "{{ csrf_token }}";
+
+      let membersData = structuredClone(initialMembers);
+      let activeMemberIndex = membersData.members.length ? 0 : -1;
+      let consentItemsData = structuredClone(initialConsentItems);
+      let activeConsentKey = consentItemsData.length ? consentItemsData[0].key : null;
+
+      const modules = {
+        members: document.querySelector("#membersModule"),
+        page: document.querySelector("#pageModule"),
+        content: document.querySelector("#contentModule"),
+        terms: document.querySelector("#termsModule"),
+        api: document.querySelector("#apiModule"),
+        social: document.querySelector("#socialModule"),
+        photos: document.querySelector("#photosModule"),
+        styles: document.querySelector("#stylesModule")
+      };
+
+      let apiLoaded = false;
+      let socialLoaded = false;
+
+      document.querySelectorAll(".module-tab").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".module-tab").forEach((item) => item.classList.toggle("is-active", item === button));
+          Object.entries(modules).forEach(([key, module]) => { module.hidden = key !== button.dataset.module; });
+          if (button.dataset.module === "api" && !apiLoaded) { apiLoaded = true; loadAiStatus(); }
+          if (button.dataset.module === "social" && !socialLoaded) { socialLoaded = true; loadSocialStatus(); }
+        });
+      });
+
+      if (document.querySelector('.module-tab[data-module="api"]').classList.contains("is-active")) {
+        apiLoaded = true; loadAiStatus();
+      }
+      if (document.querySelector('.module-tab[data-module="social"]').classList.contains("is-active")) {
+        socialLoaded = true; loadSocialStatus();
+      }
+
+      function currentMember() {
+        if (activeMemberIndex < 0) return null;
+        return membersData.members[activeMemberIndex] || null;
+      }
+
+      function escapeHtml(value) {
+        const element = document.createElement("span");
+        element.textContent = value == null ? "" : value;
+        return element.innerHTML;
+      }
+
+      function escapeAttr(value) {
+        return String(value == null ? "" : value).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
+      }
+
+      function setStatus(id, message, kind = "") {
+        const status = document.querySelector(id);
+        status.textContent = message;
+        status.className = `status ${kind ? `is-${kind}` : ""}`;
+      }
+
+      function renderMembers() {
+        const memberList = document.querySelector("#memberList");
+        memberList.innerHTML = "";
+        membersData.members.forEach((member, index) => {
+          const button = document.createElement("button");
+          button.className = "member-card";
+          button.type = "button";
+          button.classList.toggle("is-active", index === activeMemberIndex);
+          button.innerHTML = `
+            <strong>${escapeHtml(member.name || member.email || "이름 없음")}</strong>
+            <span>${escapeHtml(member.isEmailVerified ? "이메일 인증됨" : "이메일 미인증")}</span>
+            <span>${escapeHtml(member.email || "")}</span>
+            <span>${escapeHtml(member.socialProvider ? member.socialProvider + " 가입" : "이메일 가입")}</span>
+          `;
+          button.addEventListener("click", () => {
+            readMemberForm();
+            activeMemberIndex = index;
+            renderMembers();
+            renderMemberForm();
+          });
+          memberList.append(button);
+        });
+        if (!membersData.members.length) {
+          const empty = document.createElement("div");
+          empty.className = "doc-card";
+          empty.textContent = "등록된 회원이 없습니다.";
+          memberList.append(empty);
+        }
+      }
+
+      function readMemberForm() {
+        const member = currentMember();
+        if (!member) return;
+        member.name = document.querySelector("#memberNameInput").value.trim();
+        member.role = document.querySelector("#memberRoleInput").value.trim();
+        member.phone = document.querySelector("#memberPhoneInput").value.trim();
+        member.postalCode = document.querySelector("#memberPostalCodeInput").value.trim();
+        member.roadAddress = document.querySelector("#memberRoadAddressInput").value.trim();
+        member.addressDetail = document.querySelector("#memberAddressDetailInput").value.trim();
+        member.memo = document.querySelector("#memberMemoInput").value;
+      }
+
+      function renderMemberForm() {
+        const member = currentMember();
+        const disabled = !member;
+        [
+          "#memberIdInput", "#memberVerifiedStatus", "#memberSignupPathInput", "#memberRoleInput",
+          "#memberNameInput", "#memberEmailInput", "#memberPhoneInput", "#memberPostalCodeInput",
+          "#memberRoadAddressInput", "#memberAddressDetailInput", "#memberMemoInput"
+        ].forEach((selector) => { document.querySelector(selector).disabled = disabled; });
+        ["#resendVerificationButton", "#passwordResetButton", "#unlinkSocialButton"].forEach((selector) => {
+          document.querySelector(selector).disabled = disabled;
+        });
+
+        if (!member) {
+          ["#memberIdInput", "#memberVerifiedStatus", "#memberSignupPathInput", "#memberRoleInput",
+            "#memberNameInput", "#memberEmailInput", "#memberPhoneInput", "#memberPostalCodeInput",
+            "#memberRoadAddressInput", "#memberAddressDetailInput"].forEach((selector) => {
+            document.querySelector(selector).value = "";
+          });
+          document.querySelector("#memberMemoInput").value = "";
+          document.querySelector("#sendCustomEmailLink").href = "#";
+          renderLoginHistory([]);
+          return;
+        }
+
+        document.querySelector("#memberIdInput").value = member.id || "";
+        document.querySelector("#memberVerifiedStatus").value = member.isEmailVerified ? "이메일 인증됨" : "이메일 미인증";
+        document.querySelector("#memberSignupPathInput").value = member.socialProvider ? `${member.socialProvider} 소셜가입` : "이메일 가입";
+        document.querySelector("#memberRoleInput").value = member.role || "";
+        document.querySelector("#memberNameInput").value = member.name || "";
+        document.querySelector("#memberEmailInput").value = member.email || "";
+        document.querySelector("#memberPhoneInput").value = member.phone || "";
+        document.querySelector("#memberPostalCodeInput").value = member.postalCode || "";
+        document.querySelector("#memberRoadAddressInput").value = member.roadAddress || "";
+        document.querySelector("#memberAddressDetailInput").value = member.addressDetail || "";
+        document.querySelector("#memberMemoInput").value = member.memo || "";
+        document.querySelector("#unlinkSocialButton").disabled = !member.socialProvider;
+        document.querySelector("#sendCustomEmailLink").href = `/stock/stock-admin/members/email/?ids=${encodeURIComponent(member.id)}`;
+        renderLoginHistory(Array.isArray(member.loginHistory) ? member.loginHistory : []);
+      }
+
+      function renderLoginHistory(loginHistory) {
+        const container = document.querySelector("#memberLoginHistory");
+        container.innerHTML = "";
+        if (!loginHistory.length) {
+          const empty = document.createElement("div");
+          empty.className = "doc-card";
+          empty.textContent = "접속기록이 없습니다.";
+          container.append(empty);
+          return;
+        }
+        const table = document.createElement("table");
+        table.className = "login-history-table";
+        table.innerHTML = `<thead><tr><th>상태</th><th>실패 사유</th><th>IP</th><th>User-Agent</th><th>일시</th></tr></thead>`;
+        const tbody = document.createElement("tbody");
+        loginHistory.forEach((entry) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${entry.success ? "성공" : "실패"}</td>
+            <td>${escapeHtml(entry.failureReason || "")}</td>
+            <td>${escapeHtml(entry.ipAddress || "")}</td>
+            <td class="login-history-ua">${escapeHtml(entry.userAgent || "")}</td>
+            <td>${escapeHtml(entry.createdAt ? new Date(entry.createdAt).toLocaleString("ko-KR") : "")}</td>
+          `;
+          tbody.append(row);
+        });
+        table.append(tbody);
+        container.append(table);
+      }
+
+      async function postJson(url, payload) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+          body: JSON.stringify(payload || {})
+        });
+        const result = await response.json();
+        if (!response.ok || (result && result.ok === false)) throw new Error((result && (result.error || result.detail)) || "요청 실패");
+        return result;
+      }
+
+      document.querySelector("#saveVerificationPolicyButton").addEventListener("click", async () => {
+        try {
+          await postJson("{% url 'stock_admin_verification_policy_save' %}", {
+            emailEnabled: document.querySelector("#emailVerificationEnabledInput").checked,
+            phoneEnabled: document.querySelector("#phoneVerificationEnabledInput").checked,
+            requirePhone: document.querySelector("#requirePhoneInput").checked,
+            requireAddress: document.querySelector("#requireAddressInput").checked
+          });
+          setStatus("#verificationPolicyStatus", "회원가입 인증 설정을 저장했습니다. 즉시 반영됩니다.", "ok");
+        } catch (error) { setStatus("#verificationPolicyStatus", `저장 실패: ${error.message}`, "error"); }
+      });
+
+      document.querySelector("#saveMembersButton").addEventListener("click", async () => {
+        try {
+          readMemberForm();
+          await postJson("/stock/stock-admin/members/save/", membersData);
+          setStatus("#membersStatus", "회원 목록을 저장했습니다.", "ok");
+          renderMembers();
+        } catch (error) {
+          setStatus("#membersStatus", `저장 실패: ${error.message}`, "error");
+        }
+      });
+
+      document.querySelector("#resendVerificationButton").addEventListener("click", async () => {
+        const member = currentMember();
+        if (!member) return;
+        try {
+          const result = await postJson("/stock/stock-admin/members/verify-resend/", { memberId: member.id });
+          setStatus("#membersStatus", result.skipped ? "이미 인증된 계정입니다." : "인증메일을 재발송했습니다.", "ok");
+        } catch (error) {
+          setStatus("#membersStatus", `실패: ${error.message}`, "error");
+        }
+      });
+
+      document.querySelector("#passwordResetButton").addEventListener("click", async () => {
+        const member = currentMember();
+        if (!member) return;
+        try {
+          await postJson("/stock/stock-admin/members/password-reset/", { memberId: member.id });
+          setStatus("#membersStatus", "비밀번호 재설정 메일을 발송했습니다.", "ok");
+        } catch (error) {
+          setStatus("#membersStatus", `실패: ${error.message}`, "error");
+        }
+      });
+
+      document.querySelector("#unlinkSocialButton").addEventListener("click", async () => {
+        const member = currentMember();
+        if (!member) return;
+        try {
+          const result = await postJson("/stock/stock-admin/members/unlink-social/", { memberId: member.id });
+          membersData.members[activeMemberIndex] = result.member;
+          renderMembers();
+          renderMemberForm();
+          setStatus("#membersStatus", "소셜 연동을 해제했습니다.", "ok");
+        } catch (error) {
+          setStatus("#membersStatus", `실패: ${error.message}`, "error");
+        }
+      });
+
+      // --- 약관 항목 관리 (ConsentItem -- 이용약관/개인정보처리방침/AI 서비스
+      // 이용안내/마케팅수신동의/위치정보이용약관, 2026-07-22 신설) ---------------
+
+      function findConsentItem(key) {
+        return consentItemsData.find((item) => item.key === key);
+      }
+
+      function renderConsentItemsList() {
+        const list = document.querySelector("#consentItemsList");
+        list.innerHTML = "";
+        const heading = document.createElement("div");
+        heading.className = "doc-card";
+        heading.innerHTML = "<h3>항목 목록</h3><p>클릭해서 편집</p>";
+        list.append(heading);
+
+        if (!consentItemsData.length) {
+          const empty = document.createElement("div");
+          empty.className = "doc-card";
+          empty.textContent = "항목이 없습니다.";
+          list.append(empty);
+          return;
+        }
+
+        consentItemsData.forEach((item) => {
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "member-card" + (item.key === activeConsentKey ? " is-active" : "");
+          row.innerHTML = `
+            <strong>${escapeHtml(item.label)}</strong>
+            <span>${item.isRequired ? "필수" : "선택"} · ${item.isPublished ? "게시중" : "미게시"}</span>
+            <span>${escapeHtml(item.key)}</span>
+          `;
+          row.addEventListener("click", () => {
+            activeConsentKey = item.key;
+            renderConsentItemsList();
+            renderConsentItemForm();
+          });
+          list.append(row);
+        });
+      }
+
+      function renderConsentItemForm() {
+        const item = findConsentItem(activeConsentKey);
+        if (!item) {
+          setStatus("#consentStatus", "");
+          return;
+        }
+        const active = item.active;
+        document.querySelector("#consentItemKeyInput").value = item.key;
+        document.querySelector("#consentItemUrlInput").value = item.publishUrl;
+        document.querySelector("#consentItemLabelInput").value = item.label;
+        document.querySelector("#consentItemRequiredInput").checked = item.isRequired;
+        document.querySelector("#consentItemPublishedInput").checked = item.isPublished;
+        document.querySelector("#consentEnactedAtInput").value = item.enactedAt || "(아직 제정되지 않음)";
+        document.querySelector("#consentCurrentVersionInput").value = active ? `v${active.version}` : "(없음)";
+        document.querySelector("#consentChangedAtInput").value = active ? active.changedAt : "";
+        document.querySelector("#consentTitleKoInput").value = active ? active.titleKo : "";
+        document.querySelector("#consentTitleEnInput").value = active ? active.titleEn : "";
+        document.querySelector("#consentBodyKoInput").value = active ? active.bodyKo : "";
+        document.querySelector("#consentBodyEnInput").value = active ? active.bodyEn : "";
+        document.querySelector("#consentChangeSummaryInput").value = "";
+        renderConsentHistory(item.history || []);
+        setStatus("#consentStatus", "");
+      }
+
+      function renderConsentHistory(history) {
+        let container = document.querySelector("#consentHistoryList");
+        if (!container) {
+          container = document.createElement("div");
+          container.id = "consentHistoryList";
+          container.className = "doc-grid";
+          container.style.marginTop = "12px";
+          document.querySelector("#saveConsentRevisionButton").insertAdjacentElement("afterend", container);
+        }
+        container.innerHTML = "<div class=\"doc-card\"><h3>변경 이력</h3><p>버전 / 변경일자 / 변경내용</p></div>";
+        if (!history.length) {
+          container.innerHTML += "<div class=\"doc-card\">이력이 없습니다.</div>";
+          return;
+        }
+        history.forEach((revision) => {
+          const row = document.createElement("div");
+          row.className = "doc-card";
+          row.innerHTML = `
+            <strong>v${revision.version}${revision.isActive ? " (현재 적용중)" : ""}</strong>
+            <span>변경일자: ${escapeHtml(new Date(revision.changedAt).toLocaleString("ko-KR"))}</span>
+            <span>변경내용: ${escapeHtml(revision.changeSummary || "-")}</span>
+          `;
+          container.append(row);
+        });
+      }
+
+      document.querySelector("#saveConsentItemSettingsButton").addEventListener("click", async () => {
+        const item = findConsentItem(activeConsentKey);
+        if (!item) return;
+        const payload = {
+          label: document.querySelector("#consentItemLabelInput").value.trim(),
+          isRequired: document.querySelector("#consentItemRequiredInput").checked,
+          isPublished: document.querySelector("#consentItemPublishedInput").checked,
+        };
+        if (!payload.label) {
+          setStatus("#consentStatus", "항목 이름은 비울 수 없습니다.", "error");
+          return;
+        }
+        try {
+          const response = await fetch(`/stock/stock-admin/consent-items/${item.key}/update/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || "저장 실패");
+          consentItemsData = result.items;
+          renderConsentItemsList();
+          renderConsentItemForm();
+          setStatus("#consentStatus", "항목 설정을 저장했습니다.", "ok");
+        } catch (error) {
+          setStatus("#consentStatus", `저장 실패: ${error.message}`, "error");
+        }
+      });
+
+      document.querySelector("#saveConsentRevisionButton").addEventListener("click", async () => {
+        const item = findConsentItem(activeConsentKey);
+        if (!item) return;
+        const payload = {
+          key: item.key,
+          titleKo: document.querySelector("#consentTitleKoInput").value.trim(),
+          titleEn: document.querySelector("#consentTitleEnInput").value.trim(),
+          bodyKo: document.querySelector("#consentBodyKoInput").value.trim(),
+          bodyEn: document.querySelector("#consentBodyEnInput").value.trim(),
+          changeSummary: document.querySelector("#consentChangeSummaryInput").value.trim()
+        };
+        if (!payload.titleKo || !payload.titleEn || !payload.bodyKo || !payload.bodyEn) {
+          setStatus("#consentStatus", "제목/본문(한/영)을 모두 입력해 주세요.", "error");
+          return;
+        }
+        if (item.active && !payload.changeSummary) {
+          setStatus("#consentStatus", "변경내용을 입력해 주세요(최초 제정이 아닌 개정입니다).", "error");
+          return;
+        }
+        try {
+          const response = await fetch("/stock/stock-admin/consent-items/save-revision/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || "저장 실패");
+          consentItemsData = result.items;
+          renderConsentItemForm();
+          setStatus("#consentStatus", `새 버전(v${result.revision.version})을 발행했습니다.`, "ok");
+        } catch (error) {
+          setStatus("#consentStatus", `저장 실패: ${error.message}`, "error");
+        }
+      });
+
+      document.querySelector("#addConsentItemButton").addEventListener("click", async () => {
+        const label = window.prompt("새 항목 이름을 입력하세요 (예: 위치정보이용약관)");
+        if (!label) return;
+        try {
+          const response = await fetch("/stock/stock-admin/consent-items/create/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+            body: JSON.stringify({ label, isRequired: false })
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || "추가 실패");
+          consentItemsData.push(result.item);
+          activeConsentKey = result.item.key;
+          renderConsentItemsList();
+          renderConsentItemForm();
+        } catch (error) {
+          window.alert(`추가 실패: ${error.message}`);
+        }
+      });
+
+      renderMembers();
+      renderMemberForm();
+      renderConsentItemsList();
+      renderConsentItemForm();
+
+      // --- API key 관리 (기존 스토어프론트 SPA 설정탭의 /stock/api/ai/* 엔드포인트 재사용) ---
+
+      const providerLabels = { anthropic: "Anthropic", openai: "OpenAI", gemini: "Gemini" };
+      let aiProviders = {};
+      let aiActiveProvider = null;
+
+      async function loadAiStatus() {
+        setStatus("#apiStatus", "불러오는 중...");
+        try {
+          const response = await fetch("/stock/api/ai/status");
+          const result = await response.json();
+          aiActiveProvider = result.active_provider;
+          aiProviders = {};
+          (result.providers || []).forEach((p) => { aiProviders[p.provider] = p; });
+          renderAiProviders();
+          setStatus("#apiStatus", "");
+        } catch (error) {
+          setStatus("#apiStatus", `불러오기 실패: ${error.message}`, "error");
+        }
+      }
+
+      function renderAiProviders() {
+        const grid = document.querySelector("#llmProviderGrid");
+        grid.innerHTML = "";
+        Object.entries(aiProviders).forEach(([providerId, item]) => {
+          const card = document.createElement("div");
+          card.className = "settings-card provider-row";
+          const validationClass = item.usable ? "is-ok" : (item.error ? "is-error" : "");
+          const validationText = item.error || (item.usable ? "사용 가능" : "아직 검증하지 않았습니다.");
+          const models = item.available_models || [];
+          const modelsHtml = models.length
+            ? models.map((model) => `<span class="provider-model" title="${escapeAttr(model)}">${escapeHtml(model)}</span>`).join("")
+            : `<span class="provider-model">검증 후 사용 가능 모델 표시</span>`;
+          card.innerHTML = `
+            <label class="checkbox-row" style="display:flex;align-items:center;gap:8px;">
+              ${providerId === aiActiveProvider ? '<span class="badge" style="background:#dcfce7;color:#166534;">활성 provider</span>' : ''}
+              ${escapeHtml(item.label || providerLabels[providerId] || providerId)}
+            </label>
+            <label class="checkbox-row" style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" data-enabled-field data-provider="${providerId}" ${item.enabled !== false ? "checked" : ""}>
+              이 provider 사용 (꺼두면 활성/자동선택 대상에서 제외)
+            </label>
+            <label>모델<input type="text" data-model-field data-provider="${providerId}" value="${escapeAttr(item.model || "")}" placeholder="예: claude-sonnet-4-5"></label>
+            <label>API key
+              <input type="password" data-key-field data-provider="${providerId}" placeholder="${item.has_key ? escapeAttr(item.masked_key || "저장됨") : "새 key 입력"}">
+              <span class="provider-key-hint">${item.has_key ? `저장됨: ${escapeHtml(item.masked_key || "")}` : "저장된 key 없음"}</span>
+            </label>
+            <label>메모<input type="text" data-memo-field data-provider="${providerId}" value="${escapeAttr(item.memo || "")}"></label>
+            <div>
+              <button class="button primary save-provider-button" type="button" data-provider="${providerId}">저장</button>
+              <button class="button validate-provider-button" type="button" data-provider="${providerId}">키 검증</button>
+              <button class="button" type="button" data-activate-provider="${providerId}" ${providerId === aiActiveProvider || item.enabled === false ? "disabled" : ""}>활성 provider로 설정</button>
+            </div>
+            <div class="provider-validation ${validationClass}">${escapeHtml(validationText)}</div>
+            <div class="provider-models">${modelsHtml}</div>
+          `;
+          grid.append(card);
+        });
+
+        grid.querySelectorAll(".save-provider-button").forEach((button) => {
+          button.addEventListener("click", () => saveAiProvider(button.dataset.provider));
+        });
+        grid.querySelectorAll(".validate-provider-button").forEach((button) => {
+          button.addEventListener("click", () => validateAiProvider(button.dataset.provider));
+        });
+        grid.querySelectorAll("[data-activate-provider]").forEach((button) => {
+          button.addEventListener("click", () => activateAiProvider(button.dataset.activateProvider));
+        });
+      }
+
+      async function saveAiProvider(providerId) {
+        const card = [...document.querySelectorAll("#llmProviderGrid .settings-card")].find(
+          (el) => el.querySelector(`[data-provider="${providerId}"]`)
+        );
+        const model = card.querySelector(`[data-model-field][data-provider="${providerId}"]`).value.trim();
+        const apiKey = card.querySelector(`[data-key-field][data-provider="${providerId}"]`).value;
+        const enabled = card.querySelector(`[data-enabled-field][data-provider="${providerId}"]`).checked;
+        const memo = card.querySelector(`[data-memo-field][data-provider="${providerId}"]`).value;
+        try {
+          const response = await fetch(`/stock/api/ai/config/${providerId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+            body: JSON.stringify({ api_key: apiKey || null, model: model || null, enabled, memo })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "저장 실패");
+          aiProviders[providerId] = result;
+          renderAiProviders();
+          setStatus("#apiStatus", `${providerLabels[providerId] || providerId} 설정을 저장했습니다.`, "ok");
+        } catch (error) {
+          setStatus("#apiStatus", `저장 실패: ${error.message}`, "error");
+        }
+      }
+
+      async function validateAiProvider(providerId) {
+        // 2026-07-23: 원래는 빈 body({})만 보내서 "이미 저장된" key/모델만
+        // 재검증했다 -- 화면에 새로 입력했지만 아직 "저장" 버튼을 안 누른 값은
+        // 무시된 채로 검증이 돌아서, 방금 입력한 OpenAI key를 눌러도 검증이
+        // 안 되는 것처럼 보였다(실제로는 DB에 저장된 예전 값을 검증하고 있었음).
+        // origin/aura/aerogo에서 고친 것과 동일한 버그 -- 화면에 지금 입력된
+        // 값을 함께 보내 저장과 동시에 검증되게 한다(이 엔드포인트는 이미
+        // model/enabled/memo가 body에 있을 때만 갱신하도록 되어 있어 백엔드
+        // 변경은 필요 없었다).
+        const card = [...document.querySelectorAll("#llmProviderGrid .settings-card")].find(
+          (el) => el.querySelector(`[data-provider="${providerId}"]`)
+        );
+        const model = card.querySelector(`[data-model-field][data-provider="${providerId}"]`).value.trim();
+        const apiKey = card.querySelector(`[data-key-field][data-provider="${providerId}"]`).value;
+        const enabled = card.querySelector(`[data-enabled-field][data-provider="${providerId}"]`).checked;
+        const memo = card.querySelector(`[data-memo-field][data-provider="${providerId}"]`).value;
+        setStatus("#apiStatus", `${providerLabels[providerId] || providerId} 키 검증 중...`);
+        try {
+          const response = await fetch(`/stock/api/ai/config/${providerId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+            body: JSON.stringify({ api_key: apiKey || null, model: model || null, enabled, memo })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "검증 실패");
+          aiProviders[providerId] = result;
+          renderAiProviders();
+          setStatus("#apiStatus", result.usable ? `${providerLabels[providerId] || providerId} key가 유효합니다.` : (result.error || "검증 실패"), result.usable ? "ok" : "error");
+        } catch (error) {
+          setStatus("#apiStatus", `검증 실패: ${error.message}`, "error");
+        }
+      }
+
+      async function activateAiProvider(providerId) {
+        try {
+          const response = await fetch("/stock/api/ai/active-provider", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+            body: JSON.stringify({ provider: providerId })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "설정 실패");
+          aiActiveProvider = result.active_provider;
+          aiProviders = {};
+          (result.providers || []).forEach((p) => { aiProviders[p.provider] = p; });
+          renderAiProviders();
+          setStatus("#apiStatus", `${providerLabels[providerId] || providerId}를 활성 provider로 설정했습니다.`, "ok");
+        } catch (error) {
+          setStatus("#apiStatus", `설정 실패: ${error.message}`, "error");
+        }
+      }
+
+      // --- 소셜로그인 관리 (기존 스토어프론트 SPA 설정탭의 /stock/api/social-login/* 엔드포인트 재사용) ---
+      // 2026-07-22: LinguaUp 백오피스 형태로 개편 -- 통계 카드 + 사용/미사용 스위치 +
+      // redirect_uri/scope/애플 전용 필드 + 최근 연동 계정 표를 추가.
+
+      let socialProviders = [];
+
+      async function loadSocialStatus() {
+        setStatus("#socialStatus", "불러오는 중...");
+        try {
+          const response = await fetch("/stock/api/social-login/status");
+          const result = await response.json();
+          socialProviders = result.providers || [];
+          renderSocialStats(result.stats || { total_linked: 0, providers: [] });
+          renderSocialProviders();
+          renderSocialRecent(result.recent_accounts || []);
+          setStatus("#socialStatus", "");
+        } catch (error) {
+          setStatus("#socialStatus", `불러오기 실패: ${error.message}`, "error");
+        }
+      }
+
+      function renderSocialStats(stats) {
+        const row = document.querySelector("#socialStatsRow");
+        const cards = [`<div class="stat-card"><strong>${stats.total_linked || 0}</strong><span>연동 계정 총합</span></div>`];
+        (stats.providers || []).forEach((s) => {
+          cards.push(`<div class="stat-card"><strong>${s.count}</strong><span>${escapeHtml(s.label)}</span></div>`);
+        });
+        row.innerHTML = cards.join("");
+      }
+
+      function renderSocialRecent(rows) {
+        const body = document.querySelector("#socialRecentBody");
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">아직 연동된 소셜 계정이 없습니다.</td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.map((row) => `
+          <tr>
+            <td>${escapeHtml(row.provider || "")}</td>
+            <td>${escapeHtml(row.social_email || "")}</td>
+            <td>${escapeHtml(row.name || "")}</td>
+            <td>${escapeHtml(row.email || "")}</td>
+            <td>${escapeHtml(row.last_login_at || "-")}</td>
+          </tr>
+        `).join("");
+      }
+
+      function renderSocialProviders() {
+        const grid = document.querySelector("#socialProviderGrid");
+        grid.innerHTML = "";
+        socialProviders.forEach((p) => {
+          const card = document.createElement("div");
+          card.className = "settings-card";
+          const appleFields = p.provider === "apple" ? `
+            <label style="grid-column:1/-1;">Apple Team ID<input type="text" data-social-field="apple_team_id" value="${escapeAttr(p.apple_team_id || "")}"></label>
+            <label style="grid-column:1/-1;">Apple Key ID<input type="text" data-social-field="apple_key_id" value="${escapeAttr(p.apple_key_id || "")}"></label>
+            <label style="grid-column:1/-1;">Apple Private Key (.p8 내용) ${p.has_apple_private_key ? "(저장됨)" : ""}
+              <textarea data-social-field="apple_private_key" rows="3" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+            </label>
+          ` : "";
+          card.innerHTML = `
+            <div class="section-title" style="min-height:0;margin-bottom:10px;padding-bottom:10px;grid-column:1/-1;">
+              <h3 style="margin:0;">${escapeHtml(p.label)}</h3>
+              ${p.configured
+                ? '<span class="badge" style="background:#dcfce7;color:#166534;">사용중</span>'
+                : '<span class="badge" style="background:#f1f5f9;color:#475569;">미사용</span>'}
+            </div>
+            <div class="switch-row" style="grid-column:1/-1;">
+              <label class="switch"><input type="checkbox" data-social-field="is_enabled" ${p.is_enabled ? "checked" : ""}><span class="switch-slider"></span></label>
+              <span>이 제공사로 로그인 사용</span>
+            </div>
+            <label style="grid-column:1/-1;">Client ID ${p.has_client_id ? `(현재: ${escapeHtml(p.client_id_masked || "")})` : ""}
+              <input type="text" data-social-field="client_id" placeholder="${escapeAttr(p.label)} Client ID / REST API 키">
+            </label>
+            <label style="grid-column:1/-1;">Client Secret ${p.requires_secret ? "(필수)" : "(선택)"} ${p.has_client_secret ? `(현재: ${escapeHtml(p.client_secret_masked || "")})` : ""}
+              <input type="password" autocomplete="new-password" data-social-field="client_secret" placeholder="${escapeAttr(p.label)} Client Secret">
+            </label>
+            <label style="grid-column:1/-1;">Redirect URI (비워두면 기본값 사용)
+              <input type="text" data-social-field="redirect_uri" value="${escapeAttr(p.redirect_uri || "")}">
+              <span class="hint-text">기본 콜백: <code>${escapeHtml(p.default_redirect_uri || "")}</code></span>
+            </label>
+            <label style="grid-column:1/-1;">Scope (선택)<input type="text" data-social-field="scope" value="${escapeAttr(p.scope || "")}"></label>
+            ${appleFields}
+            <div style="grid-column:1/-1;">
+              <button class="button primary save-social-button" type="button">저장</button>
+              ${p.configured ? `<a class="button" href="/stock/api/auth/social/${p.provider}/start/" target="_blank">실제 로그인 테스트 →</a>` : ""}
+              <span class="hint-text">*비밀값은 보안상 화면에 다시 표시하지 않습니다.</span>
+            </div>
+          `;
+          card.querySelector(".save-social-button").addEventListener("click", () => saveSocialProvider(p.provider, card));
+          grid.append(card);
+        });
+      }
+
+      async function saveSocialProvider(providerId, card) {
+        const field = (name) => card.querySelector(`[data-social-field="${name}"]`);
+        const body = {
+          client_id: field("client_id").value.trim() || null,
+          client_secret: field("client_secret").value.trim() || null,
+          redirect_uri: field("redirect_uri").value.trim() || null,
+          scope: field("scope").value.trim() || null,
+          is_enabled: field("is_enabled").checked,
+        };
+        if (providerId === "apple") {
+          body.apple_team_id = field("apple_team_id").value.trim() || null;
+          body.apple_key_id = field("apple_key_id").value.trim() || null;
+          body.apple_private_key = field("apple_private_key").value.trim() || null;
+        }
+        try {
+          const response = await fetch(`/stock/api/social-login/config/${providerId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+            body: JSON.stringify(body)
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || "저장 실패");
+          const index = socialProviders.findIndex((p) => p.provider === providerId);
+          if (index >= 0) socialProviders[index] = result;
+          renderSocialProviders();
+          setStatus("#socialStatus", "저장되었습니다.", "ok");
+        } catch (error) {
+          setStatus("#socialStatus", `저장 실패: ${error.message}`, "error");
+        }
+      }
+    </script>
+  </body>
+</html>

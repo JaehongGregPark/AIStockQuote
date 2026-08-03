@@ -1,0 +1,183 @@
+<!-- 2026-07-23: 독립 로그인 페이지. auth.js의 loginModal과 같은 API를 쓰지만
+     완전히 별개 페이지다(사용자 요청: 로그인/회원가입 화면 분리, 전체 앱 동일 적용).
+     index.html/auth.js와 마찬가지로 Django 템플릿이 아니라 원본 HTML을 그대로
+     서빙한다(views._auth_page_html 참고) -- window.STOCK_SOCIAL_PROVIDERS는
+     서버에서 </head> 직전에 주입된다. -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AiStockQuote | 로그인</title>
+<link rel="stylesheet" href="/stock/style.css" />
+<style>
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; box-sizing: border-box; }
+  .auth-page-card { background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 420px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  .auth-page-card h2 { margin-top: 0; font-size: 1.25rem; }
+  .auth-page-card label { display: block; font-size: 0.85rem; margin: 12px 0 4px; color: #333; }
+  .auth-page-card input { width: 100%; padding: 9px 10px; border: 1px solid #ccc; border-radius: 6px;
+    box-sizing: border-box; font-size: 0.9rem; }
+  .auth-submit-btn { width: 100%; margin-top: 18px; padding: 11px; border: none; border-radius: 999px;
+    background: #417690; color: #fff; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+  .auth-status { min-height: 1.2em; font-size: 0.85rem; margin-top: 10px; }
+  .auth-status-ok { color: #2ecc71; }
+  .auth-status-error { color: #e74c3c; }
+  .auth-switch-link { display: block; margin-top: 14px; font-size: 0.85rem; text-align: center; }
+  .auth-switch-link a, .auth-switch-link button { color: #417690; cursor: pointer; background: none; border: none;
+    padding: 0; font-size: 0.85rem; text-decoration: none; }
+  .auth-hidden { display: none !important; }
+  .social-auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; color: #888; font-size: 0.78rem; }
+  .social-auth-divider::before, .social-auth-divider::after { content: ""; flex: 1; height: 1px; background: #e2e2e2; }
+  .social-auth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .social-auth-btn { border: 1px solid #ddd; border-radius: 8px; padding: 9px 10px; font-weight: 700; font-size: 0.82rem; cursor: pointer; }
+  .social-auth-kakao { background: #fee500; border-color: #fee500; color: #191919; }
+  .social-auth-naver { background: #03c75a; border-color: #03c75a; color: #fff; }
+  .social-auth-google { background: #fff; color: #1f1f1f; }
+  .social-auth-apple { background: #000; border-color: #000; color: #fff; }
+</style>
+</head>
+<body>
+  <div class="auth-page-card" id="loginSection">
+    <h2>로그인</h2>
+    <form id="loginForm">
+      <label>이메일</label>
+      <input type="email" id="loginEmail" required autofocus>
+      <label>비밀번호</label>
+      <input type="password" id="loginPassword" required>
+      <button type="submit" class="auth-submit-btn">로그인</button>
+      <p class="auth-status" id="loginStatus"></p>
+      <div class="auth-switch-link">
+        <button type="button" id="showForgotLink">비밀번호를 잊으셨나요?</button> ·
+        <button type="button" id="resendVerificationLink">인증 메일 재발송</button>
+      </div>
+      <div class="auth-switch-link">계정이 없으신가요? <a href="/stock/signup/">회원가입</a></div>
+      <div class="auth-switch-link"><a href="/stock/">AiStockQuote 홈으로 돌아가기</a></div>
+    </form>
+    <div id="loginSocialSlot"></div>
+  </div>
+
+  <div class="auth-page-card auth-hidden" id="forgotPasswordSection">
+    <h2>비밀번호 찾기</h2>
+    <form id="forgotPasswordForm">
+      <label>가입한 이메일</label>
+      <input type="email" id="forgotEmail" required>
+      <button type="submit" class="auth-submit-btn">재설정 메일 보내기</button>
+      <p class="auth-status" id="forgotStatus"></p>
+      <div class="auth-switch-link">
+        <button type="button" id="backToLoginLink">로그인으로 돌아가기</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+    const API_BASE = "/stock/api/auth";
+    const SOCIAL_PROVIDER_LABELS = { kakao: "카카오", naver: "네이버", google: "구글", apple: "애플" };
+
+    function qs(id) { return document.getElementById(id); }
+
+    async function postJson(url, body) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {}),
+      });
+      let data = {};
+      try { data = await response.json(); } catch (error) { data = { ok: false, error: "서버 응답을 해석할 수 없습니다." }; }
+      return { ok: response.ok, status: response.status, data: data };
+    }
+
+    function setStatus(id, message, isError) {
+      const el = qs(id);
+      if (!el) return;
+      el.textContent = message || "";
+      el.className = "auth-status" + (isError ? " auth-status-error" : message ? " auth-status-ok" : "");
+    }
+
+    function showSection(id) {
+      qs("loginSection").classList.add("auth-hidden");
+      qs("forgotPasswordSection").classList.add("auth-hidden");
+      qs(id).classList.remove("auth-hidden");
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+      setStatus("loginStatus", "로그인 중입니다...", false);
+      const payload = { email: qs("loginEmail").value.trim(), password: qs("loginPassword").value };
+      const result = await postJson(API_BASE + "/login/", payload);
+      if (!result.ok) {
+        setStatus("loginStatus", (result.data && result.data.error) || "로그인에 실패했습니다.", true);
+        return;
+      }
+      window.location.href = "/stock/";
+    }
+
+    async function handleForgotPassword(event) {
+      event.preventDefault();
+      setStatus("forgotStatus", "요청을 처리하는 중입니다...", false);
+      const payload = { email: qs("forgotEmail").value.trim() };
+      const result = await postJson(API_BASE + "/forgot/", payload);
+      setStatus("forgotStatus", (result.data && result.data.message) || "요청을 처리했습니다.", !result.ok);
+    }
+
+    function renderSocialButtons() {
+      const providers = window.STOCK_SOCIAL_PROVIDERS || [];
+      if (!providers.length) return;
+      const buttonsHtml = providers
+        .map((provider) => (
+          '<button type="button" class="social-auth-btn social-auth-' + provider + '" data-social-provider="' +
+          provider + '">' + (SOCIAL_PROVIDER_LABELS[provider] || provider) + '로 계속하기</button>'
+        ))
+        .join("");
+      const slot = qs("loginSocialSlot");
+      slot.innerHTML =
+        '<div class="social-auth-divider">또는 소셜 계정으로 계속하기</div>' +
+        '<div class="social-auth-row">' + buttonsHtml + '</div>';
+      slot.querySelectorAll(".social-auth-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const params = new URLSearchParams();
+          params.set("next", "/stock/login/");
+          window.location.href = "/stock/api/auth/social/" + btn.getAttribute("data-social-provider") + "/start/?" + params.toString();
+        });
+      });
+    }
+
+    function handleSocialAuthRedirectResult() {
+      const params = new URLSearchParams(window.location.search);
+      const success = params.get("social");
+      const error = params.get("socialError");
+      if (!success && !error) return;
+
+      if (success === "success") {
+        window.location.href = "/stock/";
+        return;
+      }
+      if (error) {
+        setStatus("loginStatus", decodeURIComponent(error) || "소셜 로그인에 실패했습니다.", true);
+      }
+      params.delete("social");
+      params.delete("socialError");
+      const newSearch = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (newSearch ? "?" + newSearch : ""));
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      qs("loginForm").addEventListener("submit", handleLogin);
+      qs("forgotPasswordForm").addEventListener("submit", handleForgotPassword);
+      qs("showForgotLink").addEventListener("click", () => showSection("forgotPasswordSection"));
+      qs("backToLoginLink").addEventListener("click", () => showSection("loginSection"));
+      qs("resendVerificationLink").addEventListener("click", async () => {
+        const email = (qs("loginEmail").value || "").trim();
+        if (!email) { alert("먼저 이메일을 입력해 주세요."); return; }
+        await postJson(API_BASE + "/resend/", { email: email });
+        alert("해당 이메일이 등록되어 있다면 인증 메일을 다시 보냈습니다.");
+      });
+      renderSocialButtons();
+      handleSocialAuthRedirectResult();
+    });
+  })();
+  </script>
+</body>
+</html>

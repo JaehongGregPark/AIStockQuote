@@ -1,4 +1,12 @@
-# AiStockQuote
+# AIStockQuote
+
+이 저장소는 AIStockQuote의 독립 프로젝트입니다.
+
+- `backend/`: IntegratedHub에서 분리한 최신 Django 서비스
+- `app/`, `static/`: 기존 FastAPI 구현
+- `docs/`: 구축 현황, 분리·운영 가이드, 향후 작업
+
+신규 서버 기능은 `backend/`를 기준으로 관리하며 기존 FastAPI 버전은 이력과 경량 배포 용도로 보존합니다.
 
 원래는 Kotlin/Jetpack Compose로 작성된 안드로이드 샘플 주식 시세 앱(StockQuoteApp)이었으나,
 Python(FastAPI) 웹 애플리케이션으로 이식하면서 AI 종목 해설 기능을 추가했습니다.

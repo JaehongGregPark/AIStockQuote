@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if item %}{{ item.titleKo }}{% else %}약관을 찾을 수 없습니다{% endif %}</title>
+    <style>
+      :root { --bg: #f4f5f7; --panel: #ffffff; --ink: #25272d; --muted: #69707d; --line: rgba(38, 43, 51, 0.14); }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--bg); font-family: -apple-system, "Noto Sans KR", system-ui, sans-serif; padding: 32px 16px; }
+      .doc { max-width: 720px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 32px; box-shadow: 0 12px 28px rgba(38, 43, 51, 0.06); }
+      h1 { font-size: 22px; margin: 0 0 6px; }
+      .meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+      .meta span { margin-right: 14px; }
+      .body { white-space: pre-wrap; line-height: 1.7; font-size: 14px; }
+      .not-found { color: var(--muted); text-align: center; padding: 40px 0; }
+    </style>
+  </head>
+  <body>
+    <div class="doc">
+      {% if item %}
+        <h1>{{ item.titleKo }}</h1>
+        <div class="meta">
+          <span>제정일자: {{ item.enactedAt }}</span>
+          <span>현재 버전: v{{ item.version }}</span>
+          <span>최근 개정: {{ item.changedAt }}</span>
+        </div>
+        <div class="body">{{ item.bodyKo }}</div>
+      {% else %}
+        <h1>약관을 찾을 수 없습니다</h1>
+        <p class="not-found">"{{ item_key }}" 항목이 존재하지 않거나 아직 게시되지 않았습니다.</p>
+      {% endif %}
+    </div>
+  </body>
+</html>

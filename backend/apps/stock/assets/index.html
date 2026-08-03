@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AiStockQuote</title>
+<link rel="stylesheet" href="/stock/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<style>
+  #authBar { position: fixed; top: 14px; right: 18px; z-index: 500; display: flex; gap: 8px; align-items: center; }
+  .auth-bar-name { font-size: 0.9rem; color: #333; margin-right: 4px; }
+  .auth-bar-btn { padding: 8px 14px; border-radius: 999px; border: 1px solid #417690; background: #fff;
+    color: #417690; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+  .auth-bar-btn-primary { background: #417690; color: #fff; }
+  .auth-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex;
+    align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+  .auth-hidden { display: none !important; }
+  .auth-modal { background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 420px;
+    max-height: 90vh; overflow-y: auto; position: relative; }
+  .auth-modal h2 { margin-top: 0; font-size: 1.2rem; }
+  .auth-modal label { display: block; font-size: 0.85rem; margin: 12px 0 4px; color: #333; }
+  .auth-modal input { width: 100%; padding: 9px 10px; border: 1px solid #ccc; border-radius: 6px;
+    box-sizing: border-box; font-size: 0.9rem; }
+  .auth-address-row { display: flex; gap: 8px; align-items: center; }
+  .auth-address-row input { flex: 1; }
+  .auth-postcode-btn { white-space: nowrap; padding: 9px 12px; border-radius: 6px; border: 1px solid #417690;
+    background: #fff; color: #417690; cursor: pointer; font-size: 0.85rem; }
+  .auth-modal-close { position: absolute; top: 14px; right: 16px; border: none; background: none;
+    font-size: 1.2rem; cursor: pointer; color: #888; }
+  .auth-submit-btn { width: 100%; margin-top: 18px; padding: 11px; border: none; border-radius: 999px;
+    background: #417690; color: #fff; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+  .auth-status { min-height: 1.2em; font-size: 0.85rem; margin-top: 10px; }
+  .auth-status-ok { color: #2ecc71; }
+  .auth-status-error { color: #e74c3c; }
+  .auth-switch-link { display: block; margin-top: 14px; font-size: 0.85rem; text-align: center; }
+  .auth-switch-link a { color: #417690; cursor: pointer; }
+  .auth-checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+  .auth-checkbox-row input { width: auto; }
+  .auth-checkbox-row label { margin: 0; font-size: 0.85rem; }
+  .consent-terms-box { margin-top: 12px; padding: 8px 10px; border: 1px solid #e2e2e2; border-radius: 8px; max-height: 120px; overflow-y: auto; background: #fafafa; }
+  .consent-terms-box h4 { margin: 0 0 4px; font-size: 0.82rem; }
+  .consent-terms-box pre { margin: 0; font-size: 0.75rem; white-space: pre-wrap; color: #555; font-family: inherit; }
+  .social-auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; color: #888; font-size: 0.78rem; }
+  .social-auth-divider::before, .social-auth-divider::after { content: ""; flex: 1; height: 1px; background: #e2e2e2; }
+  .social-auth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .social-auth-btn { border: 1px solid #ddd; border-radius: 8px; padding: 9px 10px; font-weight: 700; font-size: 0.82rem; cursor: pointer; }
+  .social-auth-kakao { background: #fee500; border-color: #fee500; color: #191919; }
+  .social-auth-naver { background: #03c75a; border-color: #03c75a; color: #fff; }
+  .social-auth-google { background: #fff; color: #1f1f1f; }
+  .social-auth-apple { background: #000; border-color: #000; color: #fff; }
+</style>
+</head>
+<body>
+<div id="authBar"></div>
+
+<header>
+  <h1>AiStockQuote</h1>
+  <p>종목을 선택하면 상세 시세, 1개월 차트, AI 해설을 볼 수 있습니다.</p>
+</header>
+
+<nav class="tabs" id="market-tabs"></nav>
+
+<main>
+  <section style="display:grid;gap:10px;margin-bottom:18px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
+    <strong>시장 / 전체 종목 검색</strong>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;"><input id="stock-search-input" placeholder="종목명 또는 티커 검색" style="flex:1;min-width:220px;padding:10px;"><button id="stock-search-btn">검색</button></div>
+    <div id="stock-search-results"></div>
+    <small>대표 탭은 지수 전체가 아닌 자체 선정 ‘주요 종목’입니다. 선정 기준은 시가총액·유동성·인지도이며 분기마다 검토합니다.</small>
+  </section>
+  <p class="market-desc" id="market-desc"></p>
+  <div id="content"></div>
+</main>
+
+<div class="modal-backdrop hidden" id="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Stock Detail</h2>
+      <button class="close-btn" id="close-modal">Close</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- 회원가입 -->
+<div class="auth-modal-backdrop auth-hidden" id="signupModal">
+  <div class="auth-modal">
+    <button type="button" class="auth-modal-close">&times;</button>
+    <h2>회원가입</h2>
+    <form id="signupForm">
+      <label>이메일</label>
+      <input type="email" id="signupEmail" required>
+      <label>이름</label>
+      <input type="text" id="signupName" required>
+      <label>휴대폰 번호</label>
+      <input type="text" id="signupPhone" placeholder="010-0000-0000">
+      <label>주소</label>
+      <div class="auth-address-row">
+        <input type="text" id="signupPostalCode" placeholder="우편번호" autocomplete="postal-code" inputmode="numeric">
+        <button type="button" class="auth-postcode-btn" data-prefix="signup">우편번호 검색</button>
+      </div>
+      <input type="text" id="signupRoadAddress" placeholder="도로명주소" autocomplete="address-line1" style="margin-top:8px;">
+      <input type="text" id="signupAddressDetail" placeholder="상세주소 (동·호수 등)" autocomplete="address-line2" style="margin-top:8px;">
+      <label>비밀번호</label>
+      <input type="password" id="signupPassword" required minlength="8">
+      <label>비밀번호 확인</label>
+      <input type="password" id="signupPasswordConfirm" required minlength="8">
+      <div id="consentItemsContainer"></div>
+      <button type="submit" class="auth-submit-btn">가입하기</button>
+      <p class="auth-status" id="signupStatus"></p>
+      <div class="auth-switch-link">이미 계정이 있으신가요? <a id="showLoginFromSignup">로그인</a></div>
+    </form>
+  </div>
+</div>
+
+<!-- 로그인 -->
+<div class="auth-modal-backdrop auth-hidden" id="loginModal">
+  <div class="auth-modal">
+    <button type="button" class="auth-modal-close">&times;</button>
+    <h2>로그인</h2>
+    <form id="loginForm">
+      <label>이메일</label>
+      <input type="email" id="loginEmail" required>
+      <label>비밀번호</label>
+      <input type="password" id="loginPassword" required>
+      <button type="submit" class="auth-submit-btn">로그인</button>
+      <p class="auth-status" id="loginStatus"></p>
+      <div class="auth-switch-link">
+        <a id="showForgotLink">비밀번호를 잊으셨나요?</a> ·
+        <a id="resendVerificationLink">인증 메일 재발송</a>
+      </div>
+      <div class="auth-switch-link">계정이 없으신가요? <a id="showSignupFromLogin">회원가입</a></div>
+    </form>
+  </div>
+</div>
+
+<!-- 비밀번호 찾기 -->
+<div class="auth-modal-backdrop auth-hidden" id="forgotPasswordModal">
+  <div class="auth-modal">
+    <button type="button" class="auth-modal-close">&times;</button>
+    <h2>비밀번호 찾기</h2>
+    <form id="forgotPasswordForm">
+      <label>가입한 이메일</label>
+      <input type="email" id="forgotEmail" required>
+      <button type="submit" class="auth-submit-btn">재설정 메일 보내기</button>
+      <p class="auth-status" id="forgotStatus"></p>
+    </form>
+  </div>
+</div>
+
+<!-- 비밀번호 재설정 (이메일 링크로 진입) -->
+<div class="auth-modal-backdrop auth-hidden" id="resetPasswordModal">
+  <div class="auth-modal">
+    <button type="button" class="auth-modal-close">&times;</button>
+    <h2>새 비밀번호 설정</h2>
+    <form id="resetPasswordForm">
+      <input type="hidden" id="resetToken">
+      <label>새 비밀번호</label>
+      <input type="password" id="resetPassword" required minlength="8">
+      <label>새 비밀번호 확인</label>
+      <input type="password" id="resetPasswordConfirm" required minlength="8">
+      <button type="submit" class="auth-submit-btn">비밀번호 변경</button>
+      <p class="auth-status" id="resetStatus"></p>
+    </form>
+  </div>
+</div>
+
+<!-- 비밀번호 변경 (로그인 상태) -->
+<div class="auth-modal-backdrop auth-hidden" id="changePasswordModal">
+  <div class="auth-modal">
+    <button type="button" class="auth-modal-close">&times;</button>
+    <h2>비밀번호 변경</h2>
+    <form id="changePasswordForm">
+      <label>현재 비밀번호</label>
+      <input type="password" id="changePwCurrent" required>
+      <label>새 비밀번호</label>
+      <input type="password" id="changePwNew" required minlength="8">
+      <label>새 비밀번호 확인</label>
+      <input type="password" id="changePwNewConfirm" required minlength="8">
+      <button type="submit" class="auth-submit-btn">변경하기</button>
+      <p class="auth-status" id="changePwStatus"></p>
+    </form>
+  </div>
+</div>
+
+<script src="/stock/app.js"></script>
+<script src="/stock/auth.js"></script>
+</body>
+</html>
