@@ -14,6 +14,11 @@ def test_core_routes_resolve():
     assert reverse("stock_home") == "/stock/"
     assert reverse("stock_market_quotes", args=["kospi"]) == "/stock/api/markets/kospi/quotes"
 
+def test_legacy_appsetting_admin_redirects_to_api_settings(client):
+    response = client.get("/admin/lexicon/appsetting/")
+    assert response.status_code == 302
+    assert response.url == "/stock/stock-admin/?tab=api"
+
 @pytest.mark.django_db
 def test_admin_uses_standalone_staff(client, django_user_model):
     user = django_user_model.objects.create_user("admin", is_staff=True)
